@@ -1,52 +1,44 @@
+import { useEffect } from 'react'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useSystemStats } from './hooks/useSystemStats'
-import { GaugeCard } from './components/GaugeCard'
-import { NetworkCard } from './components/NetworkCard'
-import { StatsChart } from './components/StatsChart'
-import { NetworkChart } from './components/NetworkChart'
 
-function formatMemory(bytes: number): string {
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
+function formatSpeed(bytesPerSec: number): string {
+  if (bytesPerSec < 1024) return `${bytesPerSec} B/s`
+  if (bytesPerSec < 1024 * 1024) return `${(bytesPerSec / 1024).toFixed(1)} KB/s`
+  return `${(bytesPerSec / (1024 * 1024)).toFixed(2)} MB/s`
+}
+
+function formatMem(bytes: number): string {
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)}`
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between text-[11px] leading-5">
+      <span className="text-slate-500">{label}</span>
+      <span className="font-mono text-slate-200">{value}</span>
+    </div>
+  )
 }
 
 function App() {
-  const { stats, history } = useSystemStats()
+  const { stats } = useSystemStats()
+
+  useEffect(() => {
+    const onBlur = () => {
+      getCurrentWindow().hide()
+    }
+    window.addEventListener('blur', onBlur)
+    return () => window.removeEventListener('blur', onBlur)
+  }, [])
 
   return (
-    <div className="h-screen p-4 flex flex-col gap-4 overflow-auto">
-      <h1 className="text-lg font-semibold text-slate-200 flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-        System Monitor
-      </h1>
-
-      {/* Gauges and Network Card */}
-      <div className="grid grid-cols-3 gap-4">
-        <GaugeCard
-          title="CPU"
-          value={stats?.cpu_usage ?? 0}
-          unit="%"
-          color="#f59e0b"
-          subtitle={`${navigator.hardwareConcurrency ?? '-'} cores`}
-        />
-        <GaugeCard
-          title="Memory"
-          value={stats?.memory_usage ?? 0}
-          unit="%"
-          subtitle={stats ? `${formatMemory(stats.memory_used)} / ${formatMemory(stats.memory_total)}` : '-'}
-          color="#8b5cf6"
-        />
-        <NetworkCard
-          downloadSpeed={stats?.net_download_speed ?? 0}
-          uploadSpeed={stats?.net_upload_speed ?? 0}
-        />
-      </div>
-
-      {/* Charts */}
-      <div className="grid grid-cols-2 gap-4 flex-1 min-h-0">
-        <StatsChart data={history} title="CPU History" dataKey="cpu" color="#f59e0b" />
-        <StatsChart data={history} title="Memory History" dataKey="memory" color="#8b5cf6" />
-      </div>
-
-      <NetworkChart data={history} />
+    <div className="bg-slate-900/95 text-slate-200 px-3 py-2 select-none">
+      <Row label="CPU" value={`${(stats?.cpu_usage ?? 0).toFixed(1)}%`} />
+      <Row label="MEM" value={stats ? `${formatMem(stats.memory_used)}/${formatMem(stats.memory_total)} GB` : '-'} />
+      <div className="border-t border-slate-700/50 my-1" />
+      <Row label="↓ DL" value={formatSpeed(stats?.net_download_speed ?? 0)} />
+      <Row label="↑ UL" value={formatSpeed(stats?.net_upload_speed ?? 0)} />
     </div>
   )
 }
